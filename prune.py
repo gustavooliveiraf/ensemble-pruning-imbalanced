@@ -56,3 +56,23 @@ def complementarity(pool = None, X_val = None, y_val = None, n = 21):
 		l = np.delete(l, best_index)
 	pool.estimators_ = aux[:]
 	return best
+
+def kappa(pool = None, X_val = None, y_val = None, pool_size = 100):
+    pruning = []
+    comb = combinations(range(pool_size), 2)
+
+    for tupla in comb:
+        kappa_var = cohen_kappa_score(pool.estimators_[tupla[0]].predict(X_val), pool.estimators_[tupla[1]].predict(X_val))
+        pruning.append(tupla + (kappa_var,))
+
+    pruning.sort(key=lambda tup: tup[2])
+
+    ensemble = set()
+    for j in pruning:
+        ensemble.add(j[0])
+        if ((len(ensemble) != 21)):
+            ensemble.add(j[1])
+        if (len(ensemble) == 21):
+            break
+
+    return [pool.estimators_[i] for i in list(ensemble)]
