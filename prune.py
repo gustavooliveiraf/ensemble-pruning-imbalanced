@@ -82,7 +82,7 @@ def kappa(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
 
     return [pool.estimators_[i] for i in list(ensemble)]
 
-def MDM(pool = None, X_val = None, y_val = None, n = 21):
+def MDM(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
 	estim = np.zeros(len(pool.estimators_))
 	for i, est in enumerate(pool.estimators_):
 		y_pred = est.predict(X_val)
@@ -93,7 +93,8 @@ def MDM(pool = None, X_val = None, y_val = None, n = 21):
 	best = list()
 	best.append(pool.estimators_[l[0]])
 	l = np.delete(l, 0)
-	objective = np.ones(len(y_val))
+	p = 0.05
+	objective = np.full(len(y_val), p)
 	classifier_order = 1
 	encoder = LabelEncoder()
 	y = encoder.fit_transform(y_val)
@@ -108,10 +109,55 @@ def MDM(pool = None, X_val = None, y_val = None, n = 21):
 				out[np.where(out == 0)] = -1
 				signature[k] += out*y
 			del best[classifier_order]
-		signature = signature/len(best)
+		signature = signature/(len(best)+1)
 		distances = np.zeros(len(l))
 		for index, vector in enumerate(signature):
 			distances[index] = np.linalg.norm(vector - objective)
+		best_index = np.argmin(distances)
+		best.append(aux[l[best_index]])
+		l = np.delete(l, best_index)
+		classifier_order += 1
+
+	return best
+
+def MDM_Imb(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
+	estim = np.zeros(len(pool.estimators_))
+	for i, est in enumerate(pool.estimators_):
+		y_pred = est.predict(X_val)
+		estim[i] = geometric_mean_score(y_val, y_pred)
+
+	l = np.argsort(-estim)
+	aux = pool.estimators_[:]
+	best = list()
+	best.append(pool.estimators_[l[0]])
+	l = np.delete(l, 0)
+	p = 0.05
+	# objective = np.full(len(y_val), p)
+	classifier_order = 1
+	encoder = LabelEncoder()
+	y = encoder.fit_transform(y_val)
+	y[np.where(y==0)] = -1
+
+	while len(best) < n:
+		signature = np.zeros((len(l),len(y_val)))
+		for k, j in enumerate(l):
+			best.append(aux[j])
+			for classif in best:
+				out = encoder.fit_transform(classif.predict(X_val))
+				out[np.where(out == 0)] = -1
+				signature[k] += out*y
+			del best[classifier_order]
+		signature = signature/(len(best)+1)
+		n_maj = len(y[np.where(y == 1)])
+		n_min = len(y) - n_maj
+		distance_maj = np.zeros(len(l))
+		distance_min = np.zeros(len(l))
+		for index, vector in enumerate(signature):
+			maj = vector[np.where(y != 1)]
+			mino = vector[np.where(y != -1)]
+			distance_maj[index] = np.linalg.norm(maj - np.full(len(maj), p))
+			distance_min[index] = np.linalg.norm(mino - np.full(len(mino), p))
+		distances = (1/n_maj)*distance_maj + (1/n_min)*distance_min
 		best_index = np.argmin(distances)
 		best.append(aux[l[best_index]])
 		l = np.delete(l, best_index)
