@@ -2,8 +2,10 @@ import numpy as np
 from sklearn.ensemble import BaggingClassifier
 from imblearn.metrics import geometric_mean_score
 import pandas as pd
+from itertools import combinations
+from sklearn.metrics import cohen_kappa_score
 
-def reduce_error_GM(pool = None, X_val = None, y_val = None):
+def reduce_error_GM(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
 	estim = np.zeros(len(pool.estimators_))
 	for i, est in enumerate(pool.estimators_):
 		y_pred = est.predict(X_val)
@@ -14,7 +16,7 @@ def reduce_error_GM(pool = None, X_val = None, y_val = None):
 	best.append(pool.estimators_[l[0]])
 	l = np.delete(l, 0)
 	i = 1
-	while len(best) < 21 :
+	while len(best) < n :
 		scores = np.zeros(len(l))
 		for k, j in enumerate(l):
 			best.append(aux[j])
@@ -29,7 +31,7 @@ def reduce_error_GM(pool = None, X_val = None, y_val = None):
 	pool.estimators_ = aux[:]
 	return best
 
-def complementarity(pool = None, X_val = None, y_val = None, n = 21):
+def complementarity(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
 	estim = np.zeros(len(pool.estimators_))
 	for i, est in enumerate(pool.estimators_):
 		y_pred = est.predict(X_val)
@@ -57,7 +59,7 @@ def complementarity(pool = None, X_val = None, y_val = None, n = 21):
 	pool.estimators_ = aux[:]
 	return best
 
-def kappa(pool = None, X_val = None, y_val = None, pool_size = 100):
+def kappa(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
     pruning = []
     comb = combinations(range(pool_size), 2)
 
@@ -70,9 +72,9 @@ def kappa(pool = None, X_val = None, y_val = None, pool_size = 100):
     ensemble = set()
     for j in pruning:
         ensemble.add(j[0])
-        if ((len(ensemble) != 21)):
+        if ((len(ensemble) != n)):
             ensemble.add(j[1])
-        if (len(ensemble) == 21):
+        if (len(ensemble) == n):
             break
 
     return [pool.estimators_[i] for i in list(ensemble)]
