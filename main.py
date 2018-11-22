@@ -104,13 +104,13 @@ class Main:
         return
 
 # test
-data = pd.read_csv('./cm1Class.csv')
+data = np.genfromtxt(fname = 'data/ecoli1.dat', comments='@', delimiter=',', autostrip=True)
+x = data[:,:-1]
+data = pd.read_csv('data/ecoli1.dat', comment='@', header = None, delimiter=',', delim_whitespace=True)
+y = data.iloc[:,-1].values
 
 enc = LabelEncoder()
-data.CLASS = enc.fit_transform(data.CLASS)
-
-y = np.array(data["CLASS"])
-x = np.array(data.drop(axis=1, columns = ["CLASS"]))
+y = enc.fit_transform(y)
 
 scaler = StandardScaler()
 x = scaler.fit_transform(x)
