@@ -1,20 +1,20 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.pylab import rcParams
-import itertools
-import seaborn as sns
-from collections import Counter
-from scipy.stats import  wilcoxon
+# import matplotlib.pyplot as plt
+# from matplotlib.pylab import rcParams
+# import itertools
+# import seaborn as sns
+# from collections import Counter
+# from scipy.stats import  wilcoxon
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
-from imblearn.over_sampling import SMOTE 
+from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import RandomOverSampler
 
 from sklearn import tree
 from sklearn import linear_model
 
-from sklearn.ensemble import BaggingClassifier
 from sklearn.metrics import f1_score
 from imblearn.metrics import geometric_mean_score
 from sklearn.metrics import roc_auc_score
@@ -25,7 +25,10 @@ from itertools import combinations
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import AdaBoostClassifier
+from imblearn.ensemble import RUSBoostClassifier
+from imblearn.ensemble import EasyEnsembleClassifier
 
 import prune
 
@@ -42,12 +45,19 @@ class Main:
 
         return (proc_auc_score_temp, geometric_mean_score_temp)
 
+    def normalize(self, x_train, y_train, method_normalize, generator):
+        if generator == EasyEnsembleClassifier:
+            return (x_train, y_train)
+        else:
+            if method_normalize == SMOTE:
+                return SMOTE().fit_sample(x_train, y_train)
+            elif method_normalize == RandomOverSampler:
+                return RandomOverSampler().fit_sample(x_train, y_train)
+
     def generators(self, generator, x_train, y_train):
         sac = generator(n_estimators=self.pool_size)
 
-        if generator == BaggingClassifier:
-            sac.fit(x_train, y_train)
-        elif generator == AdaBoostClassifier:
+        if generator == AdaBoostClassifier:
             sample_weight = []
             y_0 = len(y_train) - sum(y_train)
             y_1 = sum(y_train)
@@ -58,10 +68,12 @@ class Main:
                     sample_weight.append(1/(y_1/2))
 
             sac.fit(x_train, y_train, sample_weight)
+        else:
+            sac.fit(x_train, y_train)
 
         return sac
 
-    def main(self, k_fold, n_times, generator, prunning):
+    def main(self, k_fold, n_times, generator, prunning, method_normalize):
         score = (0,0)
         score_pruning = (0,0)
 
@@ -72,7 +84,7 @@ class Main:
                 x_train, x_test = self.x[train_index], self.x[test_index]
                 y_train, y_test = self.y[train_index], self.y[test_index]
 
-                x_train, y_train = SMOTE().fit_sample(x_train, y_train) # se comentar buga!!!!!!!!!!!!!!
+                x_train, y_train = self.normalize(x_train, y_train, method_normalize, generator) # SMOTE().fit_sample(x_train, y_train) # se comentar buga!!!!!!!!!!!!!!
 
                 bag = self.generators(generator, x_train, y_train)
 
@@ -105,12 +117,12 @@ x = scaler.fit_transform(x)
 
 modelo = Main(x, y)
 
-generator = [AdaBoostClassifier, BaggingClassifier]
-prunning = [prune.reduce_error_GM, prune.complementarity, prune.kappa]
+generator = [BaggingClassifier, AdaBoostClassifier, EasyEnsembleClassifier] # RUSBoostClassifier
+prunning = [prune.kappa, prune.reduce_error_GM, prune.complementarity, prune.MDM_Imb]
 
 for i in generator:
     print ('\n--------------------------', i, '--------------------------\n\n')
     for j in prunning:
         print (j, '\n')
-        modelo.main(3, 1, i, j)
+        modelo.main(3, 1, i, j, RandomOverSampler)
         print ("\n============================================\n")
