@@ -149,12 +149,12 @@ def boosting(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
 		indexes = bag_sample.estimators_samples_[i]
 		best, index = 0, 0
 		for j in range(pool_size):
-			if j is not ensenble_index:
-				score_current = bag_sample.estimators_[j].score(X_val[indexes], y_val[indexes])
+			if j not in ensenble_index:
+				score_current = pool.estimators_[j].score(X_val[indexes], y_val[indexes])
 				if score_current > best:
 					best, index = score_current, j
 
-		ensenble.append(bag_sample.estimators_[index])
+		ensenble.append(pool.estimators_[index])
 		ensenble_index.add(index)
 
 	return ensenble
@@ -196,3 +196,6 @@ def boosting(pool = None, X_val = None, y_val = None, pool_size = 100, n = 21):
 # 		classifier_order += 1
 
 # 	return best
+
+
+# https://stackoverflow.com/questions/2209755/python-operation-vs-is-not !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
