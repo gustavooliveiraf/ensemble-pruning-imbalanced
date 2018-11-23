@@ -38,6 +38,7 @@ class Main:
         self.x = np.array(x)
         self.pool_size = 30
         self.n = 21
+        self.iterations_kfold = 5
 
     def calc_metrics(self, y_samples, y_true):
         proc_auc_score_temp = roc_auc_score(y_samples, y_true)
@@ -56,32 +57,41 @@ class Main:
 
     def main(self, k_fold, n_times, generator, method_normalize, prunning):
         for i in range(n_times):
-            score = (0,0)
-            score_pruning = (0,0)
+            score_main = (0,0)
+            score_pruning_main = (0,0)
 
             skf = StratifiedKFold(n_splits=k_fold,shuffle=True)
             for train_index, test_index in skf.split(self.x, self.y):
-                x_train, x_test = self.x[train_index], self.x[test_index]
-                y_train, y_test = self.y[train_index], self.y[test_index]
+                score = (0,0)
+                score_pruning = (0,0)
+                for j in range(self.iterations_kfold):
+                    x_train, x_test = self.x[train_index], self.x[test_index]
+                    y_train, y_test = self.y[train_index], self.y[test_index]
 
-                x_train, y_train = self.normalize(x_train, y_train, method_normalize, generator)
+                    x_train, y_train = self.normalize(x_train, y_train, method_normalize, generator)
 
-                bag = generator(n_estimators=self.pool_size)
-                bag.fit(x_train, y_train)
+                    bag = generator(n_estimators=self.pool_size)
+                    bag.fit(x_train, y_train)
 
-                bag_prune = generator(n_estimators=self.pool_size)
-                bag_prune.fit(x_train, y_train)
-                bag_prune.estimators_ = prunning(bag, x_train, y_train, self.pool_size, self.n)
+                    bag_prune = generator(n_estimators=self.pool_size)
+                    bag_prune.fit(x_train, y_train)
+                    bag_prune.estimators_ = prunning(bag, x_train, y_train, self.pool_size, self.n)
 
-                score = tuple(map(sum, zip(score, self.calc_metrics(bag.predict(x_test), y_test))))
-                score_pruning = tuple(map(sum, zip(score_pruning, self.calc_metrics(bag_prune.predict(x_test), y_test))))
+                    score = tuple(map(sum, zip(score, self.calc_metrics(bag.predict(x_test), y_test))))
+                    score_pruning = tuple(map(sum, zip(score_pruning, self.calc_metrics(bag_prune.predict(x_test), y_test))))
 
-            score = tuple(map(lambda x: x/k_fold, score))
-            score_pruning = tuple(map(lambda x: x/k_fold, score_pruning))
+                score = tuple(map(lambda x: x/self.iterations_kfold, score))
+                score_pruning = tuple(map(lambda x: x/self.iterations_kfold, score_pruning))
+
+                score_main = tuple(map(sum, zip(score_main, score)))
+                score_pruning_main = tuple(map(sum, zip(score_pruning_main, score)))
+
+            score_main = tuple(map(lambda x: x/k_fold, score_main))
+            score_pruning_main = tuple(map(lambda x: x/k_fold, score_pruning_main))
 
             print('---------aux/g-mean original/pruning--------')
-            print(score)
-            print(score_pruning, '\n')
+            print(score_main)
+            print(score_pruning_main, '\n')
 
         return
 
@@ -109,7 +119,7 @@ for i in generator:
         print ('\n--------------------------', j, '--------------------------\n\n')
         for k in prunning:
             print (k, '\n')
-            modelo.main(3, 1, i, j, k)
+            modelo.main(5, 1, i, j, k)
             print ("\n============================================\n")
         if i == EasyEnsembleClassifier:
             break
