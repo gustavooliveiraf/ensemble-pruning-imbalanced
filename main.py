@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
-from imblearn.over_sampling import RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
 
 from sklearn import tree
 from sklearn import linear_model
@@ -51,44 +51,26 @@ class Main:
         else:
             if method_normalize == SMOTE:
                 return SMOTE().fit_sample(x_train, y_train)
-            elif method_normalize == RandomOverSampler:
-                return RandomOverSampler().fit_sample(x_train, y_train)
+            elif method_normalize == RandomUnderSampler:
+                return RandomUnderSampler().fit_sample(x_train, y_train)
 
-    def generators(self, generator, x_train, y_train):
-        sac = generator(n_estimators=self.pool_size)
-
-        if generator == AdaBoostClassifier:
-            sample_weight = []
-            y_0 = len(y_train) - sum(y_train)
-            y_1 = sum(y_train)
-            for i in y_train:
-                if i == 1:
-                    sample_weight.append(1/(y_0/2))
-                else:
-                    sample_weight.append(1/(y_1/2))
-
-            sac.fit(x_train, y_train, sample_weight)
-        else:
-            sac.fit(x_train, y_train)
-
-        return sac
-
-    def main(self, k_fold, n_times, generator, prunning, method_normalize):
-        score = (0,0)
-        score_pruning = (0,0)
-
+    def main(self, k_fold, n_times, generator, method_normalize, prunning):
         for i in range(n_times):
-            skf = StratifiedKFold(n_splits=k_fold,shuffle=True)
+            score = (0,0)
+            score_pruning = (0,0)
 
+            skf = StratifiedKFold(n_splits=k_fold,shuffle=True)
             for train_index, test_index in skf.split(self.x, self.y):
                 x_train, x_test = self.x[train_index], self.x[test_index]
                 y_train, y_test = self.y[train_index], self.y[test_index]
 
-                x_train, y_train = self.normalize(x_train, y_train, method_normalize, generator) # SMOTE().fit_sample(x_train, y_train) # se comentar buga!!!!!!!!!!!!!!
+                x_train, y_train = self.normalize(x_train, y_train, method_normalize, generator)
 
-                bag = self.generators(generator, x_train, y_train)
+                bag = generator(n_estimators=self.pool_size)
+                bag.fit(x_train, y_train)
 
-                bag_prune = self.generators(generator, x_train, y_train)
+                bag_prune = generator(n_estimators=self.pool_size)
+                bag_prune.fit(x_train, y_train)
                 bag_prune.estimators_ = prunning(bag, x_train, y_train, self.pool_size, self.n)
 
                 score = tuple(map(sum, zip(score, self.calc_metrics(bag.predict(x_test), y_test))))
@@ -118,11 +100,16 @@ x = scaler.fit_transform(x)
 modelo = Main(x, y)
 
 generator = [BaggingClassifier, AdaBoostClassifier, EasyEnsembleClassifier] # RUSBoostClassifier
-prunning = [prune.kappa, prune.reduce_error_GM, prune.complementarity, prune.MDM_Imb]
+samplings = [SMOTE, RandomUnderSampler]
+prunning  = [prune.boosting, prune.MDM, prune.complementarity, prune.kappa, prune.reduce_error_GM]
 
 for i in generator:
-    print ('\n--------------------------', i, '--------------------------\n\n')
-    for j in prunning:
-        print (j, '\n')
-        modelo.main(3, 1, i, j, RandomOverSampler)
-        print ("\n============================================\n")
+    print ('\n=======================', i, '=======================\n\n')
+    for j in samplings:
+        print ('\n--------------------------', j, '--------------------------\n\n')
+        for k in prunning:
+            print (k, '\n')
+            modelo.main(3, 1, i, j, k)
+            print ("\n============================================\n")
+        if i == EasyEnsembleClassifier:
+            break
