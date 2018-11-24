@@ -31,6 +31,7 @@ from imblearn.ensemble import RUSBoostClassifier
 from imblearn.ensemble import EasyEnsembleClassifier
 
 import prune
+import glob
 
 class Main:
     def __init__(self, x, y):
@@ -89,37 +90,43 @@ class Main:
             score_main = tuple(map(lambda x: x/k_fold, score_main))
             score_pruning_main = tuple(map(lambda x: x/k_fold, score_pruning_main))
 
-            print('---------aux/g-mean original/pruning--------')
-            print(score_main)
-            print(score_pruning_main, '\n')
+            # file.write('---------AUC/G-mean--------')
+            file.write(str(score_pruning_main)[1:-1] + '\n')
 
         return
 
 # test
-data = np.genfromtxt(fname = 'data/ecoli1.dat', comments='@', delimiter=',', autostrip=True)
-x = data[:,:-1]
-data = pd.read_csv('data/ecoli1.dat', comment='@', header = None, delimiter=',', delim_whitespace=True)
-y = data.iloc[:,-1].values
+file = open('RESULTS.txt','w') 
 
-enc = LabelEncoder()
-y = enc.fit_transform(y)
+path ='data' # use your path
+allFiles = glob.glob(path + "/*.dat")
+print(allFiles)
+for fileName in allFiles:
+    file.write('\nDATA SET:'+ fileName)
+    data = np.genfromtxt(fname = fileName, comments='@', delimiter=',', autostrip=True)
+    x = data[:,:-1]
+    data = pd.read_csv(fileName, comment='@', header = None, delimiter=',', delim_whitespace=True)
+    y = data.iloc[:,-1].values
 
-scaler = StandardScaler()
-x = scaler.fit_transform(x)
+    enc = LabelEncoder()
+    y = enc.fit_transform(y)
 
-modelo = Main(x, y)
+    scaler = StandardScaler()
+    x = scaler.fit_transform(x)
 
-generator = [BaggingClassifier, AdaBoostClassifier, EasyEnsembleClassifier] # RUSBoostClassifier
-samplings = [SMOTE, RandomUnderSampler]
-prunning  = [prune.boosting, prune.MDM, prune.complementarity, prune.kappa, prune.reduce_error_GM]
+    modelo = Main(x, y)
 
-for i in generator:
-    print ('\n=======================', i, '=======================\n\n')
-    for j in samplings:
-        print ('\n--------------------------', j, '--------------------------\n\n')
-        for k in prunning:
-            print (k, '\n')
-            modelo.main(5, 1, i, j, k)
-            print ("\n============================================\n")
-        if i == EasyEnsembleClassifier:
-            break
+    generator = [BaggingClassifier, AdaBoostClassifier, EasyEnsembleClassifier] # RUSBoostClassifier
+    samplings = [SMOTE, RandomUnderSampler]
+    prunning  = [prune.boosting, prune.MDM, prune.complementarity, prune.kappa, prune.reduce_error_GM]
+
+    for i in generator:
+        file.write('\n======================='+ str(i) + '=======================\n')
+        for j in samplings:
+            file.write('\n--------------------------'+ str(j)+ '--------------------------\n')
+            for k in prunning:
+                file.write(str(k) + '\n\n')
+                modelo.main(5, 5, i, j, k)
+                file.write("\n============================================\n")
+            if i == EasyEnsembleClassifier:
+                break
