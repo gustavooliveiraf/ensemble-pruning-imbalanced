@@ -96,12 +96,13 @@ class Main:
         return
 
 # test
-file = open('RESULTS.txt','w') 
+file = open('RESULTS3.txt','w') 
 
 path ='data' # use your path
 allFiles = glob.glob(path + "/*.dat")
 print(allFiles)
 for fileName in allFiles:
+    print(str(fileName))
     file.write('\nDATA SET:'+ fileName)
     data = np.genfromtxt(fname = fileName, comments='@', delimiter=',', autostrip=True)
     x = data[:,:-1]
@@ -130,3 +131,4 @@ for fileName in allFiles:
                 file.write("\n============================================\n")
             if i == EasyEnsembleClassifier:
                 break
+file.close()
